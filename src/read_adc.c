@@ -4,13 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/adc.h>
-#include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/util.h>
 
@@ -23,7 +19,6 @@
 
 /* Data of ADC io-channel specified in devicetree. */
 static const struct adc_dt_spec adc_channel = ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0);
-
 
 int err;
 
@@ -57,19 +52,17 @@ int read_analog(int32_t *val_mv) {
 	(void)adc_sequence_init_dt(&adc_channel, &sequence);
 
 	err = adc_read(adc_channel.dev, &sequence);
-	if (err < 0) {
-		return -1;
-	} else {
-		printk("%"PRId16, buf);
-	}
+	if (err < 0) { return -1; }
+
+	printk(" %d ", buf);
 
 	/* conversion to mV may not be supported, skip if not */
-	*val_mv = buf;
+	*val_mv = (int32_t)buf;
 	err = adc_raw_to_millivolts_dt(&adc_channel, val_mv);
 
 	if (err < 0) {
 		return -2;
-	} else {
-		return 0;
-	}
+	} 
+
+	return 0;
 }
