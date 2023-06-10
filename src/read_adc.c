@@ -22,20 +22,22 @@ static const struct adc_dt_spec adc_channel = ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zep
 
 int err;
 
-void init_analog() {
+int read_adc_init() {
 	if (!device_is_ready(adc_channel.dev)) {
 		printk("ADC controller device not ready\n");
-		return;
+		return -1;
 	}
 
 	err = adc_channel_setup_dt(&adc_channel);
 	if (err < 0) {
 		printk("Could not setup channel (%d)\n", err);
-		return;
+		return -2;
 	}
+
+	return 0;
 }
 
-int read_analog(int32_t *val_mv) {
+int read_adc(int32_t *val_mv) {
 	int16_t buf;
 	struct adc_sequence sequence = {
 		.buffer = &buf,

@@ -9,15 +9,14 @@
 #include <zephyr/sys/util.h>
 #include <zephyr/logging/log.h>
 
-#include "read_adc.h"
 #include "lora.h"
 #include "fence.h"
 #include "util.h"
 #include "gpio.h"
+#include "volt_measure.h"
 
 LOG_MODULE_REGISTER(lora_fence, LOG_LEVEL_DBG);
 
-const uint16_t volt_div_factor = 5; // voltage divider factor
 static enum fence_cmd fCmd = FENCE_NONE;
 K_SEM_DEFINE(lora_sem, 0, 1); // Initial count 0, max count 1
 
@@ -44,20 +43,13 @@ void cb(uint8_t port, const uint8_t* data, size_t size) {
 
 // TODO: break up loop stuff into sub-functions, define slow loop and fast loop
 int main_loop(int do_handle_cmd) {
-	int32_t val_mv = 0;
 	uint8_t data[3];
 
-	printk("Reading channel...\n");
-	int err = read_analog(&val_mv);
-	if (err < 0) {
-		printk("Could not read channel (%d)\n", err);
+	uint16_t adj_val_mv = volt_measure();
+	if (adj_val_mv < 0) {
+		LOG_ERR("Couldn't read voltage.");
 		return -1;
-	} else {
-		printk("\n%d mV\n", val_mv);
 	}
-
-	// TODO: adjust for voltage divider
-	uint16_t adj_val_mv = val_mv * volt_div_factor;
 
 	if (do_handle_cmd) {
 		// Received command
@@ -92,12 +84,16 @@ int main(void) {
 		return -10;
 	}
 
-	init_analog();
     res = lora_init(cb);
 	if (res < 0) {
         LOG_ERR("Couldn't initialize lora.");
         return -1;
     }
+
+	if (volt_measure_init() < 0) {
+		LOG_ERR("Couldn't initialize voltage measurement.");
+		return -11;
+	}	
 
 	int loop_delay_ms = 30000;
 	int short_loop_count = 0;
@@ -105,8 +101,6 @@ int main(void) {
 	enum loop_state_t loop_state = LONG_LOOP;
 
 	while (1) {
-		gpio_pin_toggle_dt(&gpio_led);
-
 		if (loop_state == SHORTER_LOOP) {
 			LOG_MSG_DBG("Shorter loop");
 			loop_delay_ms = 100;
@@ -123,6 +117,9 @@ int main(void) {
 		}
 
 		res = k_sem_take(&lora_sem, K_MSEC(loop_delay_ms));
+
+		gpio_pin_set_dt(&gpio_led, 1);
+
 		if (res == 0) {
 			printk("Received command\n");
 			main_loop(1);
@@ -131,6 +128,8 @@ int main(void) {
 			printk("No command received\n");
 			main_loop(0);
 		}
+
+		gpio_pin_set_dt(&gpio_led, 0);
 	}
 
 	printk("Done\n");

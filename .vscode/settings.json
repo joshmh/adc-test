@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "counter_storage.h": "c",
-        "log.h": "c"
+        "log.h": "c",
+        "read_adc.h": "c",
+        "zephyr.h": "c"
     }
 }
