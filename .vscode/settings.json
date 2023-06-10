@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "counter_storage.h": "c"
+        "counter_storage.h": "c",
+        "log.h": "c"
     }
 }

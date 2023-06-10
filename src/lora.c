@@ -6,6 +6,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
+DR0: SF = 12
+DR1: SF = 11
+DR2: SF = 10
+DR3: SF = 9
+DR4: SF = 8
+DR5: SF = 7
+*/
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -32,45 +41,11 @@
 					  0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88,\
 					  0x09, 0xCF, 0x4F, 0x3C }
 
+static const int port = 2;
 
-#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
-
-#define SEND_THREAD_PRIORITY   2
-#define SEND_THREAD_STACK_SIZE 2048
+static lora_callback_t g_callback = NULL;
 
 LOG_MODULE_DECLARE(lora_fence);
-
-static struct k_thread send_thread_tcb;
-K_THREAD_STACK_DEFINE(send_thread_stack_area, SEND_THREAD_STACK_SIZE);
-
-K_SEM_DEFINE(send_semaphore, 0, 1)
-
-static uint8_t *data_to_send;
-
-static void lorawan_send_thread(void *a, void *b, void *c)
-{
-	LOG_MODULE_DECLARE(lora_fence);
-
-    while (true)
-    {
-        k_sem_take(&send_semaphore, K_FOREVER);
-
-		LOG_INF("Sending data!");
-
-		/* Adding delay here solves the problem */
-        k_msleep(100);
-        
-        int ret = lorawan_send(2, data_to_send, sizeof(data_to_send),
-                    LORAWAN_MSG_UNCONFIRMED);
-
-        if (ret < 0) {
-            LOG_ERR("lorawan_send failed: %d", ret);
-        }
-        else {
-            LOG_INF("Data sent!");
-        }
-    }
-}
 
 static void dl_callback(uint8_t port, bool data_pending,
 			int16_t rssi, int8_t snr,
@@ -83,10 +58,10 @@ static void dl_callback(uint8_t port, bool data_pending,
 		LOG_HEXDUMP_INF(data, len, "Payload: ");
 	}
 
-	// if (port != 0) {
-    //     k_sem_give(&send_semaphore);
-    // }
-
+	if (g_callback != NULL) {
+        g_callback(port, data, len);
+    }
+	LOG_MSG_DBG("Done callback");
 }
 
 static void lorawan_datarate_changed(enum lorawan_datarate dr)
@@ -99,7 +74,14 @@ static void lorawan_datarate_changed(enum lorawan_datarate dr)
 	LOG_INF("New Datarate: DR_%d, Max Payload %d", dr, max_size);
 }
 
-int lora_init(void) {
+static struct lorawan_downlink_cb downlink_cb = {
+	.port = LW_RECV_PORT_ANY,
+	.cb = dl_callback
+};
+
+int lora_init(lora_callback_t callback) {
+    g_callback = callback;
+
 	const struct device *lora_dev;
 	struct lorawan_join_config join_cfg;
 	uint8_t dev_eui[] = LORAWAN_DEV_EUI;
@@ -109,23 +91,6 @@ int lora_init(void) {
 	int ret;
 
 	LOG_MODULE_DECLARE(lora_fence);
-
-    k_thread_create(&send_thread_tcb,
-                    send_thread_stack_area,
-                    K_THREAD_STACK_SIZEOF(send_thread_stack_area),
-                    lorawan_send_thread,
-                    NULL,
-                    NULL,
-                    NULL,
-                    SEND_THREAD_PRIORITY,
-                    0,
-                    K_NO_WAIT);
-
-	struct lorawan_downlink_cb downlink_cb = {
-		.port = LW_RECV_PORT_ANY,
-		.cb = dl_callback
-	};
-
 
 	if (counter_storage_init() < 0) {
 		LOG_ERR("Can't init non-volatile storage.");
@@ -144,12 +109,18 @@ int lora_init(void) {
 		return -3;
 	}
 
-	lorawan_enable_adr(true);
-	
+	ret = lorawan_set_conf_msg_tries(3);
+	if (ret < 0) {
+		LOG_ERR("lorawan_set_conf_msg_tries failed: %d", ret);
+		return -5;
+	} else {
+		LOG_INF("lorawan_set_conf_msg_tries set to 3.");
+	}
+
 	ret = lorawan_start();
 	if (ret < 0) {
 		LOG_ERR("lorawan_start failed: %d", ret);
-		return -4;
+		return -7;
 	}
 
 	lorawan_register_downlink_callback(&downlink_cb);
@@ -179,15 +150,38 @@ int lora_init(void) {
 
 	k_sleep(K_MSEC(1000));
 
+	ret = lorawan_set_class(LORAWAN_CLASS_C);
+	if (ret < 0) {
+		LOG_ERR("lorawan_set_class failed: %d", ret);
+		return -4;
+	} else {
+		LOG_INF("Set to class C.");
+	}
+
+	ret = lorawan_set_datarate(LORAWAN_DR_3);
+	if (ret < 0) {
+		LOG_ERR("lorawan_set_datarate failed: %d", ret);
+		return -6;
+	} else {
+		LOG_MSG_DBG("lorawan_set_datarate set to DR_3.");
+	}
+
 #ifdef CONFIG_LORAWAN_APP_CLOCK_SYNC
+	LOG_INF("Syncing clock.");
 	lorawan_clock_sync_run();
 #endif
 
 	return 0;
 }
 
-void lora_send(uint8_t *data)
+void lora_send(uint8_t *data, uint8_t size)
 {
-    data_to_send = data;
-    k_sem_give(&send_semaphore);
+	int ret = lorawan_send(port, data, size, LORAWAN_MSG_UNCONFIRMED);
+
+	if (ret < 0) {
+		LOG_ERR("lorawan_send failed: %d", ret);
+	}
+	else {
+		LOG_INF("Data sent!");
+	}
 }

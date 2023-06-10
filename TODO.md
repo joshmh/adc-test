@@ -1,7 +1,6 @@
-* switch back to class c
-* try removing threads
+* use potentiometer + 3 way switch to control voltage
+* do partial hw test with external breadboard
+* hook up entire circuit in breadboard and do full test
+* solder protoboard
 * Handle on/off commands
-* Get real input pin working
 * do gpio pins for relay
-* accelerate status after button is pressed
-* LED control (via gpio)
