@@ -3,11 +3,11 @@
 #include "fence.h"
 #include "gpio.h"
 
-enum relay_state_t { Reset, Set };
+enum relay_state_t { Energize, De_energize };
 const int relay_time_ms = 1000;
 
 uint8_t fence_is_energized(uint16_t mv_value) {
-    if (mv_value > 10000) {
+    if (mv_value > 5000) {
         return 1;
     } 
 
@@ -15,10 +15,10 @@ uint8_t fence_is_energized(uint16_t mv_value) {
 }
 
 void set_relay_pin(enum relay_state_t relay_state, int value) {
-    if (relay_state == Set) {
-        gpio_pin_set_dt(&gpio_relay_set, value);
-    } else {
+    if (relay_state == Energize) {
         gpio_pin_set_dt(&gpio_relay_reset, value);
+    } else if (relay_state == De_energize) {
+        gpio_pin_set_dt(&gpio_relay_set, value);
     }
 }
 
@@ -32,8 +32,8 @@ void fence_handle_cmd(uint16_t mv_value, enum fence_cmd cmd) {
     int energized = fence_is_energized(mv_value);
 
     if (cmd == FENCE_ENERGIZE && !energized) {
-        set_relay(Set);
+        set_relay(Energize);
     } else if (cmd == FENCE_DE_ENERGIZE && energized) {
-        set_relay(Reset);
+        set_relay(De_energize);
     }
 }

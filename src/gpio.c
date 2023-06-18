@@ -10,8 +10,6 @@ const struct gpio_dt_spec gpio_relay_set =
 const struct gpio_dt_spec gpio_relay_reset =
         GPIO_DT_SPEC_GET(ZEPHYR_USER_NODE, relay_reset_gpios);
 
-const struct gpio_dt_spec gpio_enable_measure =
-        GPIO_DT_SPEC_GET(ZEPHYR_USER_NODE, enable_measure_gpios);
 
 const struct gpio_dt_spec gpio_led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 
@@ -36,7 +34,6 @@ int init_gpio(const struct gpio_dt_spec *gpio) {
 int gpio_init(void) {
     if (init_gpio(&gpio_relay_set) < 0) { return -1; }
     if (init_gpio(&gpio_relay_reset) < 0) { return -2; }
-    if (init_gpio(&gpio_enable_measure) < 0) { return -3; }
     if (init_gpio(&gpio_led) < 0) { return -4; }
 
     return 0;
