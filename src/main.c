@@ -15,10 +15,15 @@
 #include "gpio.h"
 #include "volt_measure.h"
 
+#define THREAD_PRIORITY 5
+
 LOG_MODULE_REGISTER(lora_fence, LOG_LEVEL_DBG);
 
 static enum fence_cmd fCmd = FENCE_NONE;
 K_SEM_DEFINE(lora_sem, 0, 1); // Initial count 0, max count 1
+
+K_THREAD_STACK_DEFINE(stack_area, 500);
+struct k_thread thread_data;
 
 void cb(uint8_t port, const uint8_t* data, size_t size) {
 	printk("Yo! (in main) Received %d bytes, port %d\n", size, port);
@@ -73,6 +78,27 @@ void led_off() {
 	gpio_pin_set_dt(&gpio_led, 0);
 }
 
+void led_thread(void *, void *, void *)
+{
+    while (1) {
+        led_on();
+        k_sleep(K_MSEC(300));
+        led_off();
+        k_sleep(K_MSEC(100));
+    }
+}
+
+void led_success(void) {
+	for (int i = 0; i < 10; i++) {
+		led_on();
+		k_sleep(K_MSEC(100));
+		led_off();
+		k_sleep(K_MSEC(100));
+	}
+
+	led_off();
+}
+
 int main(void) {
     int res;
 
@@ -84,16 +110,30 @@ int main(void) {
 		return -10;
 	}
 
+	led_on();
+
+	k_tid_t tid = k_thread_create(&thread_data, stack_area,
+                                 K_THREAD_STACK_SIZEOF(stack_area),
+                                 led_thread,
+                                 NULL, NULL, NULL,
+                                 THREAD_PRIORITY, 0, K_NO_WAIT);
+
     res = lora_init(cb);
+
+	k_thread_abort(tid);
+	led_off();
+
 	if (res < 0) {
         LOG_ERR("Couldn't initialize lora.");
         return -1;
     }
-
+	
 	if (volt_measure_init() < 0) {
 		LOG_ERR("Couldn't initialize voltage measurement.");
 		return -11;
 	}	
+
+	led_success();
 
 	int loop_delay_ms = 30000;
 	int short_loop_count = 0;
@@ -118,7 +158,7 @@ int main(void) {
 
 		res = k_sem_take(&lora_sem, K_MSEC(loop_delay_ms));
 
-		gpio_pin_set_dt(&gpio_led, 1);
+		led_on();
 
 		if (res == 0) {
 			printk("Received command\n");
@@ -129,7 +169,7 @@ int main(void) {
 			main_loop(0);
 		}
 
-		gpio_pin_set_dt(&gpio_led, 0);
+		led_off();
 	}
 
 	printk("Done\n");
