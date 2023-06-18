@@ -4,7 +4,7 @@
 #include "gpio.h"
 
 enum relay_state_t { Energize, De_energize };
-const int relay_time_ms = 1000;
+const int relay_time_ms = 100;
 
 uint8_t fence_is_energized(uint16_t mv_value) {
     if (mv_value > 5000) {

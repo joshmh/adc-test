@@ -17,7 +17,7 @@
 
 #define THREAD_PRIORITY 5
 
-LOG_MODULE_REGISTER(lora_fence, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(lora_fence, 0);
 
 static enum fence_cmd fCmd = FENCE_NONE;
 K_SEM_DEFINE(lora_sem, 0, 1); // Initial count 0, max count 1
@@ -45,8 +45,6 @@ void cb(uint8_t port, const uint8_t* data, size_t size) {
 	}
 }
 
-
-// TODO: break up loop stuff into sub-functions, define slow loop and fast loop
 int main_loop(int do_handle_cmd) {
 	uint8_t data[3];
 
@@ -78,7 +76,7 @@ void led_off() {
 	gpio_pin_set_dt(&gpio_led, 0);
 }
 
-void led_thread(void *, void *, void *)
+void led_thread(void *a, void *b, void *c)
 {
     while (1) {
         led_on();
@@ -89,7 +87,7 @@ void led_thread(void *, void *, void *)
 }
 
 void led_success(void) {
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < 5; i++) {
 		led_on();
 		k_sleep(K_MSEC(100));
 		led_off();
