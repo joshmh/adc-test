@@ -20,6 +20,7 @@ DR5: SF = 7
 
 #include <zephyr/devicetree.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/random/rand32.h>
 
 #include <zephyr/device.h>
 #include <zephyr/lorawan/lorawan.h>
@@ -79,16 +80,71 @@ static struct lorawan_downlink_cb downlink_cb = {
 	.cb = dl_callback
 };
 
-int lora_init(lora_callback_t callback) {
-    g_callback = callback;
+int join(uint32_t initial_delay_ms, uint32_t max_delay_ms, uint8_t max_attempts) {
+    uint32_t delay = initial_delay_ms;
+    uint8_t attempts = 0;
+    float random_factor;
+	int ret;
+	uint16_t dev_nonce;
 
-	const struct device *lora_dev;
 	struct lorawan_join_config join_cfg;
 	uint8_t dev_eui[] = LORAWAN_DEV_EUI;
 	uint8_t join_eui[] = LORAWAN_JOIN_EUI;
 	uint8_t app_key[] = LORAWAN_APP_KEY;
-	uint32_t dev_nonce;
+
+	join_cfg.mode = LORAWAN_ACT_OTAA;
+	join_cfg.dev_eui = dev_eui;
+	join_cfg.otaa.join_eui = join_eui;
+	join_cfg.otaa.app_key = app_key;
+	join_cfg.otaa.nwk_key = app_key;
+
+    while (attempts < max_attempts) {
+		dev_nonce = counter_storage_inc();
+		LOG_INF("Joining network over OTAA. DevNonce: %d", dev_nonce);
+		join_cfg.otaa.dev_nonce = dev_nonce;
+		ret = lorawan_join(&join_cfg);
+
+		if (ret == 0) {
+			LOG_INF("Joined!");
+			return 0;
+		}
+		
+		LOG_ERR("lorawan_join_network failed: %d", ret);
+
+        // Generate a random factor between 1 and 1.5
+        random_factor = 1 + ((float) sys_rand32_get() / UINT32_MAX) * 0.5;
+
+        // Multiply the delay by the random factor
+        uint32_t actual_delay = (uint32_t)(delay * random_factor);
+
+        // Cap the delay with max_delay_ms
+        if (actual_delay > max_delay_ms) {
+            actual_delay = max_delay_ms;
+        }
+
+        printk("Attempt %d: Waiting for %d seconds\n", attempts + 1, actual_delay/1000);
+
+        // Sleep for the actual delay time
+        k_sleep(K_MSEC(actual_delay));
+
+        // Double the next delay
+        delay *= 2;
+
+        // Increment the number of attempts
+        attempts++;
+    }
+
+	return -1;
+}
+
+int lora_init(lora_callback_t callback) {
+    g_callback = callback;
+
+	const struct device *lora_dev;
 	int ret;
+    uint32_t initial_delay_ms = 5000;  // 5 seconds
+    uint32_t max_delay_ms = 600000;     // 10 minutes
+    uint8_t max_attempts = 10;
 
 	LOG_MODULE_DECLARE(lora_fence);
 
@@ -126,27 +182,11 @@ int lora_init(lora_callback_t callback) {
 	lorawan_register_downlink_callback(&downlink_cb);
 	lorawan_register_dr_changed_callback(lorawan_datarate_changed);
 
-	join_cfg.mode = LORAWAN_ACT_OTAA;
-	join_cfg.dev_eui = dev_eui;
-	join_cfg.otaa.join_eui = join_eui;
-	join_cfg.otaa.app_key = app_key;
-	join_cfg.otaa.nwk_key = app_key;
-	
-	while (1) {
-		LOG_INF("Joining network over OTAA");
-		dev_nonce = counter_storage_inc();
-		join_cfg.otaa.dev_nonce = dev_nonce;
-		ret = lorawan_join(&join_cfg);
-		if (ret < 0) {
-			LOG_ERR("lorawan_join_network failed: %d", ret);
-			k_sleep(K_MSEC(3000));
-			continue;
-		}
-
-		break;
+    ret = join(initial_delay_ms, max_delay_ms, max_attempts);
+	if (ret < 0) {
+		LOG_ERR("Join failed.");
+		return -8;
 	}
-
-	LOG_INF("Joined!");
 
 	k_sleep(K_MSEC(1000));
 

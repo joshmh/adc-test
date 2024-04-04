@@ -40,6 +40,10 @@ void cb(uint8_t port, const uint8_t* data, size_t size) {
 		printk("De-energize\n");
 		fCmd = FENCE_DE_ENERGIZE;
 		k_sem_give(&lora_sem);
+	} else if (data[0] == 0x09) {
+		printk("Check status\n");
+		fCmd = FENCE_NONE;
+		k_sem_give(&lora_sem);
 	} else {
 		printk("Unknown command\n");
 	}
@@ -109,6 +113,8 @@ int main(void) {
 	}
 
 	led_on();
+	k_sleep(K_MSEC(3000));
+	led_off();
 
 	k_tid_t tid = k_thread_create(&thread_data, stack_area,
                                  K_THREAD_STACK_SIZEOF(stack_area),

@@ -49,9 +49,9 @@ int counter_storage_init(void)
     return 0;
 }
 
-uint32_t counter_storage_inc(void) {
+uint16_t counter_storage_inc(void) {
     int rc;
-	uint32_t counter = 10U;
+	uint16_t counter = 0U;
 
 	/* COUNTER_ID is used to store the reboot counter, lets see
 	 * if we can read it from flash

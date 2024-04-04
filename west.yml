@@ -1,0 +1,13 @@
+manifest:
+  defaults:
+    remote: lamassu
+  remotes:
+    - name: lamassu
+      url-base: git@gitlab.lamassu.is:farm/lora-fence
+  projects:
+    - name: zephyr
+      repo-path: zephyr
+      revision: v3.4.0
+    - name: lora-fence
+      revision: main
+      self: true
