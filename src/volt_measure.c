@@ -8,11 +8,11 @@ int volt_measure_init(void) {
     return read_adc_init();
 }
 
-uint16_t volt_measure(void) {
+uint16_t volt_measure(int idx) {
     int32_t val_mv = 0;
     
 	printk("Reading channel...\n");
-	int err = read_adc(&val_mv);
+	int err = read_adc(&val_mv, idx);
 
 	if (err < 0) {
 		printk("Could not read channel (%d)\n", err);

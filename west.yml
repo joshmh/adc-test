@@ -3,11 +3,11 @@ manifest:
     remote: lamassu
   remotes:
     - name: lamassu
-      url-base: git@gitlab.lamassu.is:farm/lora-fence
+      url-base: git@gitlab.lamassu.is:farm/adc-test
   projects:
     - name: zephyr
       repo-path: zephyr
       revision: v3.4.0
-    - name: lora-fence
+    - name: adc-test
       revision: main
       self: true

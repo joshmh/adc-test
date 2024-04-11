@@ -1,1 +1,0 @@
-void convert_uint16_to_uint8_array(uint16_t input, uint8_t output[2]);

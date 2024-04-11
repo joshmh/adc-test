@@ -16,7 +16,7 @@ const struct gpio_dt_spec gpio_led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 LOG_MODULE_DECLARE(lora_fence);
 
 int init_gpio(const struct gpio_dt_spec *gpio) {
-    LOG_MODULE_DECLARE(lora_fence);
+    LOG_MODULE_DECLARE(adc_test);
 
 	if (!gpio_is_ready_dt(gpio)) {
         LOG_ERR("GPIO %s is not ready.", gpio->port->name);

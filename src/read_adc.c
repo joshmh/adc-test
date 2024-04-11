@@ -18,17 +18,29 @@
 #endif
 
 /* Data of ADC io-channel specified in devicetree. */
-static const struct adc_dt_spec adc_channel = ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0);
+static const struct adc_dt_spec adc_channel_1 = ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1);
+static const struct adc_dt_spec adc_channel_2 = ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 2);
 
 int err;
 
 int read_adc_init() {
-	if (!device_is_ready(adc_channel.dev)) {
+	if (!device_is_ready(adc_channel_1.dev)) {
 		printk("ADC controller device not ready\n");
 		return -1;
 	}
 
-	err = adc_channel_setup_dt(&adc_channel);
+	err = adc_channel_setup_dt(&adc_channel_1);
+	if (err < 0) {
+		printk("Could not setup channel (%d)\n", err);
+		return -2;
+	}
+
+	if (!device_is_ready(adc_channel_2.dev)) {
+		printk("ADC controller device not ready\n");
+		return -1;
+	}
+
+	err = adc_channel_setup_dt(&adc_channel_2);
 	if (err < 0) {
 		printk("Could not setup channel (%d)\n", err);
 		return -2;
@@ -37,8 +49,9 @@ int read_adc_init() {
 	return 0;
 }
 
-int read_adc(int32_t *val_mv) {
+int read_adc(int32_t *val_mv, int idx) {
 	int16_t buf;
+	struct adc_dt_spec adc_channel = idx == 0 ? adc_channel_1 : adc_channel_2;
 	struct adc_sequence sequence = {
 		.buffer = &buf,
 		/* buffer size in bytes, not number of samples */
